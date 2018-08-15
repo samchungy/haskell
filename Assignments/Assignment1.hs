@@ -1,6 +1,8 @@
 -- Sam Chung - Chungs1 - 758 053
 -- Assignment 1
 
+module Assignment1 (elementPosition, everyNth, sumLater, sumEarlier) where
+
 elementPosition :: Eq t => t -> [t] -> Int
 elementPosition el [] = error "Empty List"
 elementPosition el (x:xs)
