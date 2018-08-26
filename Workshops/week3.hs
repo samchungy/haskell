@@ -11,3 +11,7 @@ mergeSortedLists [] x = x
 mergeSortedLists (x:xs) (y:ys)
     | x <= y            = (x:mergeSortedLists xs (y:ys))
     | otherwise         = (y:mergeSortedLists (x:xs) ys)
+    
+test :: [a] -> [a]
+test [] = []
+test [x1,x2] = [x2,x1]
