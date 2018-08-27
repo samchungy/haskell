@@ -1,8 +1,8 @@
--- Sam Chung | 750 053
+-- Sam Chung | 758 053
 -- Project 1 Declarative Programming 2018 Semester 2
 
---module Proj1 (Person, parsePerson, height, hair, sex,
---       GameState, initialGuess, nextGuess, feedback) where
+module Proj1 (Person, parsePerson, height, hair, sex,
+       GameState, initialGuess, nextGuess, feedback) where
 
 data Height = Short | Tall
         deriving (Show, Eq, Enum)
@@ -14,8 +14,8 @@ data Person = Person Height Hair Sex
         deriving (Show, Eq)
 
 -- Stores the state
--- [[Person]] - Holds remaining suspects  
-data GameState = GameState [[Person]]
+-- [[Person]] - Holds remaining pair lineups
+data GameState = GameState [[Person]] [Height] [Hair] [Sex]
         deriving (Show, Eq)
 
 height:: Person -> Height
@@ -69,19 +69,16 @@ newSex x
 -- Feedback Functions
 
 -- Accumulates using a,,b,,c,d variables
+-- c1 = Culprit 1, Sus1, Sus2 = Suspect 1 & 2
 feedback :: [Person] -> [Person] -> (Int, Int, Int, Int)
 feedback [] _ = (0, 0, 0, 0)
-feedback ((Person x1 x2 x3):xs) [(Person y1 y2 y3),(Person y21 y22 y23)]
-        = let (a,b,c,d) = feedback xs [p2,p3] in 
+feedback (c1:cs) [sus1,sus2] = let (a,b,c,d) = feedback cs [sus1,sus2] in 
                 (
-                        (a + (eqtest p1 p2 p3)),
-                        (b + (eqtest x1 y1 y21)),
-                        (c + (eqtest x2 y2 y22)),
-                        (d + (eqtest x3 y3 y23))
+                        (a + (eqtest c1 sus1 sus2)),
+                        (b + (eqtest (height c1) (height sus1) (height sus2))),
+                        (c + (eqtest (hair c1) (hair sus1) (hair sus2))),
+                        (d + (eqtest (sex c1) (sex sus1) (sex sus2)))
                 )
-        where p1 = (Person x1 x2 x3)
-              p2 = (Person y1 y2 y3)
-              p3 = (Person y21 y22 y23)
 
 -- Checks for one attribute matching the pair.
 eqtest :: Eq a => a -> a -> a -> Int
@@ -93,11 +90,25 @@ eqtest x y z
 ----------------------------------------        
         
 initialGuess:: ([Person],GameState)
-initialGuess = (initg, (GameState (tail gencombo)))
+initialGuess = (initg, (GameState gencombo), a, b, c)
         where initg = head gencombo
               gencombo = [[d, e] | d<-allpeople, e<-allpeople]
               allpeople = [ (Person x y z) | x <- a, y <- b, z <- c ]
               a = enumFrom Short
               b = enumFrom Blond
               c = enumFrom Male
---nextGuess :: ([Person], GameState) -> (Int, Int, Int, Int) -> ([Person], GameState)
+
+----------------------------------------
+-- Next Guess Functions
+              
+nextGuess :: ([Person], GameState) -> (Int, Int, Int, Int) -> 
+        ([Person], GameState)
+nextGuess (ps, gs) score = (bestguess, newgame)
+        where newgame = pruneState ps gs score
+              
+pruneState :: [Person] -> GameState -> (Int, Int, Int, Int) -> 
+        GameState
+pruneState 
+
+-- Next Guess Functions End
+----------------------------------------
