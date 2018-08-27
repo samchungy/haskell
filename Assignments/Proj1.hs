@@ -1,21 +1,23 @@
 -- Sam Chung | 758 053
 -- Project 1 Declarative Programming 2018 Semester 2
 
-module Proj1 (Person, parsePerson, height, hair, sex,
-       GameState, initialGuess, nextGuess, feedback) where
+--module Proj1 (Person, parsePerson, height, hair, sex,
+  --     GameState, initialGuess, nextGuess, feedback) where
 
+import Data.List 
+  
 data Height = Short | Tall
-        deriving (Show, Eq, Enum)
+        deriving (Show, Eq, Enum, Ord)
 data Hair = Blond | Red | Dark
-        deriving (Show, Eq, Enum)
+        deriving (Show, Eq, Enum, Ord)
 data Sex = Male | Female
-        deriving (Show, Eq, Enum)
+        deriving (Show, Eq, Enum, Ord)
 data Person = Person Height Hair Sex
-        deriving (Show, Eq)
+        deriving (Show, Eq, Ord)
 
 -- Stores the state
 -- [[Person]] - Holds remaining pair lineups
-data GameState = GameState [[Person]] [Height] [Hair] [Sex]
+data GameState = GameState [[Person]]
         deriving (Show, Eq)
 
 height:: Person -> Height
@@ -67,32 +69,28 @@ newSex x
         
 ----------------------------------------
 -- Feedback Functions
-
--- Accumulates using a,,b,,c,d variables
--- c1 = Culprit 1, Sus1, Sus2 = Suspect 1 & 2
 feedback :: [Person] -> [Person] -> (Int, Int, Int, Int)
-feedback [] _ = (0, 0, 0, 0)
-feedback (c1:cs) [sus1,sus2] = let (a,b,c,d) = feedback cs [sus1,sus2] in 
-                (
-                        (a + (eqtest c1 sus1 sus2)),
-                        (b + (eqtest (height c1) (height sus1) (height sus2))),
-                        (c + (eqtest (hair c1) (hair sus1) (hair sus2))),
-                        (d + (eqtest (sex c1) (sex sus1) (sex sus2)))
-                )
+feedback [c1, c2] [s1, s2] = (
+        eqtest (sort [c1, c2]) (sort [s1, s2]),
+        eqtest (sort [(height c1), (height c2)]) 
+                (sort [(height s1), (height s2)]),
+        eqtest (sort [(hair c1), (hair c2)]) (sort [(hair s1), (hair s2)]),
+        eqtest (sort [(sex c1), (sex c2)]) (sort [(sex s1), (sex s2)])
+        )
 
 -- Checks for one attribute matching the pair.
-eqtest :: Eq a => a -> a -> a -> Int
-eqtest x y z
-        | x == y || x == z       = 1
-        | otherwise              = 0
-        
+eqtest :: Ord a => [a] -> [a] -> Int
+eqtest [] [] = 0
+eqtest (x:xs) (y:ys)
+        | x == y      = 1 + eqtest xs ys
+        | otherwise   = 0 + eqtest xs ys
+               
 -- Feedback Functions End
 ----------------------------------------        
         
 initialGuess:: ([Person],GameState)
-initialGuess = (initg, (GameState gencombo), a, b, c)
-        where initg = head gencombo
-              gencombo = [[d, e] | d<-allpeople, e<-allpeople]
+initialGuess = (head gencombo, (GameState (tail gencombo)))
+        where gencombo = [[d, e] | d<-allpeople, e<-allpeople, d <= e]
               allpeople = [ (Person x y z) | x <- a, y <- b, z <- c ]
               a = enumFrom Short
               b = enumFrom Blond
@@ -101,14 +99,13 @@ initialGuess = (initg, (GameState gencombo), a, b, c)
 ----------------------------------------
 -- Next Guess Functions
               
-nextGuess :: ([Person], GameState) -> (Int, Int, Int, Int) -> 
-        ([Person], GameState)
-nextGuess (ps, gs) score = (bestguess, newgame)
-        where newgame = pruneState ps gs score
-              
-pruneState :: [Person] -> GameState -> (Int, Int, Int, Int) -> 
-        GameState
-pruneState 
+--nextGuess :: ([Person], GameState) -> (Int, Int, Int, Int) -> 
+  --      ([Person], GameState)
+        
+pruneGuess :: ([Person], GameState) -> (Int, Int, Int, Int) -> GameState
+pruneGuess (pp, (GameState ps)) (w, x, y, z)
+        = (GameState [ i | i <- ps, let (a, b, c, d) = feedback pp i,
+                x == b && y == c && z == d])
 
 -- Next Guess Functions End
 ----------------------------------------
