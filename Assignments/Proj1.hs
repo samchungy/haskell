@@ -1,8 +1,9 @@
 -- Sam Chung | 758 053
 -- Project 1 Declarative Programming 2018 Semester 2
+-- Objective: To implement the guessing component of the Robbery Culprit Game
 
---module Proj1 (Person, parsePerson, height, hair, sex,
-  --     GameState, initialGuess, nextGuess, feedback) where
+module Proj1 (Person, parsePerson, height, hair, sex,
+        GameState, initialGuess, nextGuess, feedback) where
 
 import Data.List 
   
@@ -32,6 +33,7 @@ sex (Person a b c) = c
 ------------------------------------------
 -- ParsePerson Functions
 
+-- Validates, then parses the string to a type.
 parsePerson :: String -> Maybe Person
 parsePerson x
         | lenx == 3 && valheight && valhair && valsex = Just
@@ -69,48 +71,66 @@ newSex x
         
 ----------------------------------------
 -- Feedback Functions
+
+-- Takes a pair and compares it with the other pair.        
 feedback :: [Person] -> [Person] -> (Int, Int, Int, Int)
-feedback [c1, c2] [s1, s2] = 
+feedback l1 l2 =
         (
-                (eqtest [c1, c2] [s1, s2]),
-                (eqtest  [height c1, height c2] [height s1, height s2]),
-                (eqtest [hair c1, hair c2] [hair s1, hair s2]),
-                (eqtest [sex c1, sex c2] [sex s1, sex s2])
+                (oldlen - newlen),
+                (eqtest (map height newl1) (map height newl2)),
+                (eqtest (map hair newl1) (map hair newl2)),
+                (eqtest (map sex newl1) (map sex newl2))
         )
+        where newlen = length newl1
+              oldlen = length l1
+              newl1 = l1 \\ l2
+              newl2 = l2 \\ l1
 
 --Removes from 1 list the elements of the other list. Returns the number of
---elements which match        
+--elements which match.       
 eqtest :: Eq a => [a] -> [a] -> Int
-eqtest l1 l2
-        | lendups == 0       = 2
-        | lendups == 1       = 1
-        | otherwise          = 0
-        where lendups = length (l1 \\ l2)
+eqtest l1 l2 = oldlen - newlen
+        where newlen = length (l1 \\ l2)
+              oldlen = length l1
                
 -- Feedback Functions End
-----------------------------------------        
-        
+---------------------------------------- 
+
+----------------------------------------
+-- Guess Functions
+
+--First called before nextGuess        
 initialGuess :: ([Person],GameState)
 initialGuess = (head gencombo, (GameState (tail gencombo)))
-        where gencombo = [[d, e] | d<-allpeople, e<-allpeople, d <= e]
+        where gencombo = [[d, e] | d<-allpeople, e<-allpeople, d < e]
               allpeople = [ (Person x y z) | x <- a, y <- b, z <- c ]
               a = enumFrom Short
               b = enumFrom Blond
               c = enumFrom Male
 
-----------------------------------------
--- Next Guess Functions
-              
---nextGuess :: ([Person], GameState) -> (Int, Int, Int, Int) -> 
-  --      ([Person], GameState)
-
-frequency :: ([Person], GameState) -> [((Int, Int, Int, Int),[Person])]
-frequency (ps, (GameState xs)) = zip (map f xs) xs
+--Called to parse next guess. Extracts the best guess from groupScores function
+--and returns it and the newly pruned guess list.              
+nextGuess :: ([Person], GameState) -> (Int, Int, Int, Int) -> 
+        ([Person], GameState)
+nextGuess (ps, gs) score = (bestguess, (GameState $ delete bestguess pps))
+                where bestguess = snd $ head $ head $ groupScores (ps, pruned)
+                      pruned = pruneGuess (ps, gs) score
+                      (GameState pps) = pruned
+                      
+-- Finds the frequency of the remaining pairs feedback score and sorts them
+-- from lowest to highest frequency.
+groupScores :: ([Person], GameState) -> [[((Int, Int, Int, Int),[Person])]]
+groupScores (ps, (GameState xs)) = sortBy scmp $ groupBy cmp $ sort
+                $ zip (map f xs) xs
         where f = feedback ps
-        
+              cmp = (\a b -> fst a == fst b)
+              scmp = (\a b -> compare (length a) (length b)) 
+
+-- Removes any answers which are no longer consistent with the feedback score
+-- received in the last nextGuess call.              
 pruneGuess :: ([Person], GameState) -> (Int, Int, Int, Int) -> GameState
 pruneGuess (pp, (GameState ps)) score
-        = (GameState [ i | i <- ps, score == feedback pp i])
+        = (GameState [ x | x <- ps, score == feedback pp x])
 
 -- Next Guess Functions End
 ----------------------------------------
