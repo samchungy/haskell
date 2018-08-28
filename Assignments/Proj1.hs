@@ -18,8 +18,7 @@ data Person = Person Height Hair Sex
 
 -- Stores the state
 -- [[Person]] - Holds remaining pair lineups
-data GameState = GameState [[Person]]
-        deriving (Show, Eq)
+type GameState = [[Person]]
 
 height:: Person -> Height
 height (Person a b c) = a
@@ -101,36 +100,38 @@ eqtest l1 l2 = oldlen - newlen
 
 --First called before nextGuess        
 initialGuess :: ([Person],GameState)
-initialGuess = (head gencombo, (GameState (tail gencombo)))
+initialGuess = (ing, (delete ing gencombo))
         where gencombo = [[d, e] | d<-allpeople, e<-allpeople, d < e]
               allpeople = [ (Person x y z) | x <- a, y <- b, z <- c ]
               a = enumFrom Short
               b = enumFrom Blond
               c = enumFrom Male
+              ing = [Person Short Blond Male, Person Short Red Male]
 
---Called to parse next guess. Extracts the best guess from groupScores function
---and returns it and the newly pruned guess list.              
-nextGuess :: ([Person], GameState) -> (Int, Int, Int, Int) -> 
-        ([Person], GameState)
-nextGuess (ps, gs) score = (bestguess, (GameState $ delete bestguess pps))
-                where bestguess = snd $ head $ head $ groupScores (ps, pruned)
-                      pruned = pruneGuess (ps, gs) score
-                      (GameState pps) = pruned
-                      
--- Finds the frequency of the remaining pairs feedback score and sorts them
--- from lowest to highest frequency.
-groupScores :: ([Person], GameState) -> [[((Int, Int, Int, Int),[Person])]]
-groupScores (ps, (GameState xs)) = sortBy scmp $ groupBy cmp $ sort
-                $ zip (map f xs) xs
-        where f = feedback ps
-              cmp = (\a b -> fst a == fst b)
-              scmp = (\a b -> compare (length a) (length b)) 
+--Called to parse next guess. Uses calcAverage and genLineupScores to calculate
+-- the best guess
+nextGuess (ps, gs) score = (bestguess, (delete bestguess pruned))
+            where bestguess = snd $ head sortedavg
+                  sortedavg = sort avgexpect
+                  avgexpect = zip (calcAverage (genLineupScores prune)) prune
+                  prune = pruneGuess (ps, gs) score
 
+--Calculates the average number of expected guesses per guess               
+calcAverage :: [[Int]] -> [Double]
+calcAverage (x:xs) = map sum (map (map (f sumx)) (x:xs))
+        where sumx = sum x
+              f = (\a b -> fromIntegral b * (fromIntegral b)/(fromIntegral a))
+
+--Generates the feedback scores between each of the guesses
+genLineupScores :: GameState -> [[Int]]
+genLineupScores gs = [ map length (group $ sort $ map f gs) | 
+        x <- gs, let f = feedback x]
+        
 -- Removes any answers which are no longer consistent with the feedback score
--- received in the last nextGuess call.              
+-- received in the last nextGuess call.   
 pruneGuess :: ([Person], GameState) -> (Int, Int, Int, Int) -> GameState
-pruneGuess (pp, (GameState ps)) score
-        = (GameState [ x | x <- ps, score == feedback pp x])
+pruneGuess (pp, ps) score
+        = [ i | i <- ps, score == feedback pp i]
 
 -- Next Guess Functions End
 ----------------------------------------
