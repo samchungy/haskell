@@ -70,25 +70,27 @@ newSex x
 ----------------------------------------
 -- Feedback Functions
 feedback :: [Person] -> [Person] -> (Int, Int, Int, Int)
-feedback [c1, c2] [s1, s2] = (
-        eqtest (sort [c1, c2]) (sort [s1, s2]),
-        eqtest (sort [(height c1), (height c2)]) 
-                (sort [(height s1), (height s2)]),
-        eqtest (sort [(hair c1), (hair c2)]) (sort [(hair s1), (hair s2)]),
-        eqtest (sort [(sex c1), (sex c2)]) (sort [(sex s1), (sex s2)])
+feedback [c1, c2] [s1, s2] = 
+        (
+                (eqtest [c1, c2] [s1, s2]),
+                (eqtest  [height c1, height c2] [height s1, height s2]),
+                (eqtest [hair c1, hair c2] [hair s1, hair s2]),
+                (eqtest [sex c1, sex c2] [sex s1, sex s2])
         )
 
--- Checks for one attribute matching the pair.
-eqtest :: Ord a => [a] -> [a] -> Int
-eqtest [] [] = 0
-eqtest (x:xs) (y:ys)
-        | x == y      = 1 + eqtest xs ys
-        | otherwise   = 0 + eqtest xs ys
+--Removes from 1 list the elements of the other list. Returns the number of
+--elements which match        
+eqtest :: Eq a => [a] -> [a] -> Int
+eqtest l1 l2
+        | lendups == 0       = 2
+        | lendups == 1       = 1
+        | otherwise          = 0
+        where lendups = length (l1 \\ l2)
                
 -- Feedback Functions End
 ----------------------------------------        
         
-initialGuess:: ([Person],GameState)
+initialGuess :: ([Person],GameState)
 initialGuess = (head gencombo, (GameState (tail gencombo)))
         where gencombo = [[d, e] | d<-allpeople, e<-allpeople, d <= e]
               allpeople = [ (Person x y z) | x <- a, y <- b, z <- c ]
@@ -101,11 +103,14 @@ initialGuess = (head gencombo, (GameState (tail gencombo)))
               
 --nextGuess :: ([Person], GameState) -> (Int, Int, Int, Int) -> 
   --      ([Person], GameState)
+
+frequency :: ([Person], GameState) -> [((Int, Int, Int, Int),[Person])]
+frequency (ps, (GameState xs)) = zip (map f xs) xs
+        where f = feedback ps
         
 pruneGuess :: ([Person], GameState) -> (Int, Int, Int, Int) -> GameState
-pruneGuess (pp, (GameState ps)) (w, x, y, z)
-        = (GameState [ i | i <- ps, let (a, b, c, d) = feedback pp i,
-                x == b && y == c && z == d])
+pruneGuess (pp, (GameState ps)) score
+        = (GameState [ i | i <- ps, score == feedback pp i])
 
 -- Next Guess Functions End
 ----------------------------------------
