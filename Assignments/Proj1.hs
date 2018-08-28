@@ -110,7 +110,7 @@ initialGuess = (ing, (delete ing gencombo))
 
 --Called to parse next guess. Uses calcAverage and genLineupScores to calculate
 -- the best guess
-nextGuess (ps, gs) score = (bestguess, (delete bestguess pruned))
+nextGuess (ps, gs) score = (bestguess, (delete bestguess prune))
             where bestguess = snd $ head sortedavg
                   sortedavg = sort avgexpect
                   avgexpect = zip (calcAverage (genLineupScores prune)) prune
