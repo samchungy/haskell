@@ -121,6 +121,12 @@ calcAverage :: [[Int]] -> [Double]
 calcAverage (x:xs) = map sum (map (map (f sumx)) (x:xs))
         where sumx = sum x
               f = (\a b -> fromIntegral b * (fromIntegral b)/(fromIntegral a))
+--calcAverage :: [[Int]] -> [Double]
+--calcAverage [] = []
+--calcAverage (x:xs) = (sum (f sumx x)):calcAverage 
+--        where sumx = sum x
+ --             f = (\a b -> fromIntegral b * (fromIntegral b)/(fromIntegral a))
+
 
 --Generates the feedback scores between each of the guesses
 genLineupScores :: GameState -> [[Int]]
