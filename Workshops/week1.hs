@@ -26,3 +26,5 @@ getNthElem n (x:xs)
         | otherwise         = getNthElem (n-1) xs
         
 getNthElem2:: Int -> [a] -> a
+getNthElem 1 [x] = x
+getNthElem n 
