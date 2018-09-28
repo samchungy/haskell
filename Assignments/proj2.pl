@@ -58,7 +58,8 @@ valid_puzzle([Row|Rows]) :-
 
 solve_puzzle(_Puzzle0, _WordList, _Puzzle).
 
-% Counts word slots in crossword > 1, Passes to Item Counter
+% Counts word slots in crossword row, Passes to an item counter.
+% Returns format of [(len of word)-(no. of occurances)]
 % eg. slot_count(["#","_","_","#"],[2-1]) :-
 slot_count([],_).
 slot_count([X|_Xs], Z) :-
