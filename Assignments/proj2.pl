@@ -136,7 +136,7 @@ test_init(PuzzleFile, Output) :-
 % ------------------------------------------------ %  
 	
 % ------------------------------------------------ %
-% Start Matching Functions 
+% Start Sorting Functions 
 % ------------------------------------------------ %  
 	
 test_solve(PuzzleFile, WordFile, Output) :-
@@ -146,37 +146,41 @@ test_solve(PuzzleFile, WordFile, Output) :-
         init_slots(VarPuzzle, Slots),
         sort_words_slots(WordList, Slots, Output).
 
-sort_words_slots(WordList, SlotList, KeyPairs) :-
+sort_words_slots(WordList, SlotList, SortedPairs) :-
         insertionSort(SlotList, SortedSlots),
         insertionSort(WordList, SortedWords),
         pack(SortedSlots, PackedSlots),
         pack(SortedWords, PackedWords),
-        zip()
-        store_together_in_pair(SortedWords, SortedSlots, SortedPairs).
+        zip_into_pair(PackedWords, PackedSlots, Pairs),
+        insertionSortPairs(Pairs, SortedPairs).
 
-% Pack function taken from
+% Zip into Pair of format: [[Words of Same Length]-[Slots of Same Length]]
+zip_into_pair([], [], []).
+zip_into_pair([X|Xs], [Y|Ys], [X-Y|Zs]) :-
+        zip_into_pair(Xs, Ys, Zs).
+
+% Pack function adapted from
 % http://www.ic.unicamp.br/~meidanis/courses/problemas-prolog/p09.prolog
-% Packs repeated elements into sublists.
+% Packs repeated lengths of elements into sublists.
 pack([],[]).
 pack([X|Xs], [Z|Zs]) :-
         transfer(X,Xs,Ys,Z),
         pack(Ys,Zs).
 
+% transfer(X,Xs,Ys,Z) Ys is the list that remains from the list Xs
+%    when all leading copies of length X are removed and transfered to Z
 transfer(X,[],[],[X]).
-transfer(X,[Y|Ys],[Y|Ys],[X]) :- dif(X,Y).
-transfer(X,[X|Xs],Ys,[X|Zs]) :- transfer(X,Xs,Ys,Zs).        
+transfer(X,[Y|Ys],[Y|Ys],[X]) :-
+        length(X, Len_X),
+        length(Y, Len_Y),
+        dif(Len_X,Len_Y).
+transfer(W, [X|Xs], Ys, [W|Zs]) :-
+        length(W, Len_W),
+        length(X, Len_X),
+        Len_W =:= Len_X,
+        transfer(X, Xs, Ys, Zs).
 
-% Increments the counter via pairs 
-% eg. item_counter(a,[b-1,a-1],[b-1,a-2]). item_counter(a,[],[a-1]).
-item_counter(X,[],[X-1]).
-item_counter(X,[X-N|Ys],[X-M|Ys]) :-
-	M is N + 1.
-item_counter(X,[Y-N|Ys],[Y-N|Z]) :-
-	dif(X,Y),
-	item_counter(X,Ys,Z).
-
-
-% Insertion Sort Taken From http://www.cs.princeton.edu/courses/archive/
+% Insertion Sort adapted From http://www.cs.princeton.edu/courses/archive/
 % spr11/cos333/lectures/17paradigms/sort.prolog 
 
 insertionSort([], []).
@@ -194,3 +198,34 @@ insertInPlace(Element, [Head|Tail], [Head|List]) :-
         length(Head, Head_len),
         El_len > Head_len,
         insertInPlace(Element, Tail, List).
+
+insertionSortPairs([],[]).
+insertionSortPairs([Head|Tail], Result) :-
+        insertionSortPairs(Tail, List), insertPairInPlace(Head, List, Result).
+
+insertPairInPlace(Element, [], [Element]).
+insertPairInPlace(El-El_Val, [HeadHead-HeadTail|Tail], [El-El_Val|List]) :-
+        length(El, El_len),
+        length(HeadHead, Head_len),
+        El_len =< Head_len,
+        insertPairInPlace(HeadHead-HeadTail, Tail, List).
+insertPairInPlace(El-El_Val, [HeadHead-HeadTail|Tail], [HeadHead-HeadTail|List]) :-
+        length(El, El_len),
+        length(HeadHead, Head_len),
+        El_len > Head_len,
+        insertPairInPlace(El-El_Val, Tail, List).
+
+% ------------------------------------------------ %
+% End Sorting Functions 
+% ------------------------------------------------ %  
+
+% Increments the counter via pairs 
+% eg. item_counter(a,[b-1,a-1],[b-1,a-2]). item_counter(a,[],[a-1]).
+item_counter(X,[],[X-1]).
+item_counter(X,[X-N|Ys],[X-M|Ys]) :-
+        M is N + 1.
+item_counter(X,[Y-N|Ys],[Y-N|Z]) :-
+        dif(X,Y),
+        item_counter(X,Ys,Z).
+
+
