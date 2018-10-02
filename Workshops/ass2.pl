@@ -15,4 +15,8 @@ sublist([X|Xs],[X|Ys]) :-
 sublist([X|Xs],[Y|Ys]) :-
         dif(X,Y),
         sublist([X|Xs],Ys).
-        
+
+test([],Acc,Acc).        
+test([X|Xs], Acc, Output) :-
+        append(Acc,[X],Acc2),
+        test(Xs, Acc2, Output).
