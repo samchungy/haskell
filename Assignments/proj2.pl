@@ -138,13 +138,6 @@ test_init(PuzzleFile, Output) :-
 % ------------------------------------------------ %
 % Start Sorting Functions 
 % ------------------------------------------------ %  
-	
-test_solve(PuzzleFile, WordFile, Output) :-
-        read_file(PuzzleFile, Puzzle),
-        read_file(WordFile, WordList),
-        init_variables(Puzzle, VarPuzzle),
-        init_slots(VarPuzzle, Slots),
-        sort_words_slots(WordList, Slots, Output).
 
 sort_words_slots(WordList, SlotList, SortedPairs) :-
         insertionSort(SlotList, SortedSlots),
@@ -152,7 +145,7 @@ sort_words_slots(WordList, SlotList, SortedPairs) :-
         pack(SortedSlots, PackedSlots),
         pack(SortedWords, PackedWords),
         zip_into_pair(PackedWords, PackedSlots, Pairs),
-        insertionSortPairs(Pairs, SortedPairs).
+        quicksort_mid_pivot(Pairs, SortedPairs).
 
 % Zip into Pair of format: [[Words of Same Length]-[Slots of Same Length]]
 zip_into_pair([], [], []).
@@ -199,33 +192,76 @@ insertInPlace(Element, [Head|Tail], [Head|List]) :-
         El_len > Head_len,
         insertInPlace(Element, Tail, List).
 
-insertionSortPairs([],[]).
-insertionSortPairs([Head|Tail], Result) :-
-        insertionSortPairs(Tail, List), insertPairInPlace(Head, List, Result).
+% Used to grab the middle element for pivot selection in
+% the quicksort function.
+middle(List, Middle) :-
+    middle(List, List, Middle).
+middle([M|_], [_,_], M).
+middle([M|_], [_], M).
+middle([_|T], [_,_,X|T2], Middle) :-
+    middle(T, [X|T2], Middle).
 
-insertPairInPlace(Element, [], [Element]).
-insertPairInPlace(El-El_Val, [HeadHead-HeadTail|Tail], [El-El_Val|List]) :-
-        length(El, El_len),
-        length(HeadHead, Head_len),
-        El_len =< Head_len,
-        insertPairInPlace(HeadHead-HeadTail, Tail, List).
-insertPairInPlace(El-El_Val, [HeadHead-HeadTail|Tail], [HeadHead-HeadTail|List]) :-
-        length(El, El_len),
-        length(HeadHead, Head_len),
-        El_len > Head_len,
-        insertPairInPlace(El-El_Val, Tail, List).
+% Code adapted from https://www.cp.eng.chula.ac.th/
+% ~piak/teaching/dsys/2004/quick-prolog.htm
+quicksort_mid_pivot(Xs,Ys):-
+        middle(Xs, X),
+        partition(Xs, X, Left, Right),
+        quicksort(Left, Ls),
+        quicksort(Right, Rs),
+        append(Ls, Rs, Ys).
+quicksort_mid_pivot([],[]).
+
+quicksort([X|Xs],Ys) :-
+        partition(Xs,X,Left,Right),
+        quicksort(Left,Ls),
+        quicksort(Right,Rs),
+        append(Ls,[X|Rs],Ys).
+quicksort([],[]).
+
+% Partitioning key value pairs eg. [a]-[_]
+partition([Xk-Xv|Xs],Yk-Yv,[Xk-Xv|Ls],Rs) :-
+        length(Yk, Y_Len),
+        length(Xk, X_Len),
+        X_Len =< Y_Len,
+        partition(Xs,Yk-Yv,Ls,Rs).
+partition([Xk-Xv|Xs],Yk-Yv,Ls,[Xk-Xv|Rs]) :-
+        length(Yk, Y_Len),
+        length(Xk, X_Len),
+        X_Len > Y_Len,
+        partition(Xs,Yk-Yv,Ls,Rs).
+partition([],_,[],[]).
 
 % ------------------------------------------------ %
 % End Sorting Functions 
 % ------------------------------------------------ %  
 
-% Increments the counter via pairs 
-% eg. item_counter(a,[b-1,a-1],[b-1,a-2]). item_counter(a,[],[a-1]).
-item_counter(X,[],[X-1]).
-item_counter(X,[X-N|Ys],[X-M|Ys]) :-
-        M is N + 1.
-item_counter(X,[Y-N|Ys],[Y-N|Z]) :-
-        dif(X,Y),
-        item_counter(X,Ys,Z).
+% ------------------------------------------------ %
+% Start Insertion Functions
+% ------------------------------------------------ %
+
+test_solve(PuzzleFile, WordFile, Output) :-
+        read_file(PuzzleFile, Puzzle),
+        read_file(WordFile, WordList),
+        init_variables(Puzzle, VarPuzzle),
+        init_slots(VarPuzzle, Slots),
+        sort_words_slots(WordList, Slots, Sorted_Pairs),
+        insert_words(Sorted_Pairs).
+
+% Pair is in Key Value Pair Format eg. [a]-[b]
+insert_words([[]-[]|Pairs]):-
+        insert_words(Pairs).
+insert_words([]).
+insert_words([[Pkhead|Pktail]-[Pvhead|Pvtail]|Pairs]) :-
+        (  Pkhead = Pvhead   % Successful Unification
+        -> insert_words([Pktail]-[Pvtail]|Pairs)
+        ;  % Failed Unification
+            length(Pvtail, Pvtail_Len)
+            (   Pvtail_Len =:= 0
+            ->  
+            )
+        )
+% ------------------------------------------------ %
+% End Insertion Functions 
+% ------------------------------------------------ %  
 
 
