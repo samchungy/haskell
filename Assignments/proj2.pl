@@ -144,13 +144,36 @@ sort_words_slots(WordList, SlotList, SortedPairs) :-
         insertionSort(WordList, SortedWords),
         pack(SortedSlots, PackedSlots),
         pack(SortedWords, PackedWords),
-        zip_into_pair(PackedWords, PackedSlots, Pairs),
+        pair_words_with_slots(PackedWords, PackedSlots, Pairs),
         quicksort_mid_pivot(Pairs, SortedPairs).
 
-% Zip into Pair of format: [[Words of Same Length]-[Slots of Same Length]]
+% Zip into Pairormat: [[Words of Same Length]-[Slots of Same Length]]
 zip_into_pair([], [], []).
 zip_into_pair([X|Xs], [Y|Ys], [X-Y|Zs]) :-
         zip_into_pair(Xs, Ys, Zs).
+
+pair_words_with_slots(PackedWords, PackedSlots, SortedPairs) :-
+        pair_words_with_slots(PackedWords, PackedSlots, [], SortedPairs).
+pair_words_with_slots([],_, FinalPairs, FinalPairs).
+pair_words_with_slots([WGroup|WGroups],[SGroup|SGroups], Acc, FinalPairs):-
+        pair_a_word_with_slots(WGroup, SGroup, [], Pairs),
+        append(Pairs,Acc,Acc2),
+        pair_words_with_slots(WGroups, SGroups, Acc2, FinalPairs).
+
+pair_a_word_with_slots([],_,Pairs, Pairs).
+pair_a_word_with_slots([Word|Words],Slots, Acc, Pairs):-
+        test_word(Word, Slots, [], UnifiableList),
+        pair_a_word_with_slots(Words, Slots, [Word-UnifiableList|Acc], Pairs).
+
+
+test_word(_,[],Slots,Slots).
+test_word(Word, [Slot|Slots], Ys, List):-
+        unifiable(Word, Slot, _),
+        test_word(Word, Slots, [Slot|Ys], List).
+test_word(Word, [Slot|Slots], Ys, List):-
+        not(unifiable(Word, Slot, _)),
+        test_word(Word, Slots, Ys, List).
+
 
 % Pack function adapted from
 % http://www.ic.unicamp.br/~meidanis/courses/problemas-prolog/p09.prolog
@@ -220,13 +243,13 @@ quicksort([],[]).
 
 % Partitioning key value pairs eg. [a]-[_]
 partition([Xk-Xv|Xs],Yk-Yv,[Xk-Xv|Ls],Rs) :-
-        length(Yk, Y_Len),
-        length(Xk, X_Len),
+        length(Yv, Y_Len),
+        length(Xv, X_Len),
         X_Len =< Y_Len,
         partition(Xs,Yk-Yv,Ls,Rs).
 partition([Xk-Xv|Xs],Yk-Yv,Ls,[Xk-Xv|Rs]) :-
-        length(Yk, Y_Len),
-        length(Xk, X_Len),
+        length(Yv, Y_Len),
+        length(Xv, X_Len),
         X_Len > Y_Len,
         partition(Xs,Yk-Yv,Ls,Rs).
 partition([],_,[],[]).
@@ -244,24 +267,27 @@ test_solve(PuzzleFile, WordFile, Output) :-
         read_file(WordFile, WordList),
         init_variables(Puzzle, VarPuzzle),
         init_slots(VarPuzzle, Slots),
-        sort_words_slots(WordList, Slots, Sorted_Pairs),
-        insert_words(Sorted_Pairs).
+        sort_words_slots(WordList, Slots, Output).
 
-% Pair is in Key Value Pair Format eg. [a]-[b]
-insert_words([[]-[]|Pairs]):-
-        insert_words(Pairs).
-insert_words([]).
-insert_words([[Pkhead|Pktail]-[Pvhead|Pvtail]|Pairs]) :-
-        (  Pkhead = Pvhead   % Successful Unification
-        -> insert_words([Pktail]-[Pvtail]|Pairs)
-        ;  % Failed Unification
-            length(Pvtail, Pvtail_Len)
-            (   Pvtail_Len =:= 0
-            ->  
-            )
-        )
+%% % Pair is in Key Value Pair Format eg. [Word]-[[Slot]]
+%% insert_words([[]-[]|Pairs]):-
+%%         insert_words(Pairs).
+%% insert_words([]).
+%% insert_words([[Pkhead|Pktail]-[Pvhead|Pvtail]|Pairs]) :-
+%%         (  Pkhead = Pvhead   % Successful Unification
+%%         -> insert_words([[Pktail]-[Pvtail]|Pairs])
+%%         ;  % Failed Unification
+%%             length(Pvtail, Pvtail_Len),
+%%             Pvtail_Len > 0,
+%%             insert
+%%         )
+%% attempt_unification(_,[],[])
+%% attempt_unification(test_item, [X|Xs], final):-
+%%         (  test_item = X % attempt unification
+%%         -> final = Xs
+%%         ; % else failed unification
+%%            attempt_unification(test_item, Xs, final)
+%%         ).
 % ------------------------------------------------ %
 % End Insertion Functions 
 % ------------------------------------------------ %  
-
-
