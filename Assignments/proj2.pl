@@ -162,10 +162,11 @@ pair_words_with_slots([WGroup|WGroups],[SGroup|SGroups], Acc, FinalPairs):-
 
 pair_a_word_with_slots([],_,Pairs, Pairs).
 pair_a_word_with_slots([Word|Words],Slots, Acc, Pairs):-
-        test_word(Word, Slots, [], UnifiableList),
+        test_word(Word, Slots, UnifiableList),
         pair_a_word_with_slots(Words, Slots, [Word-UnifiableList|Acc], Pairs).
 
-
+test_word(Word, Slots, UnifiableList):-
+        test_word(Word, Slots, [], UnifiableList).
 test_word(_,[],Slots,Slots).
 test_word(Word, [Slot|Slots], Ys, List):-
         unifiable(Word, Slot, _),
@@ -270,25 +271,49 @@ test_solve(PuzzleFile, WordFile, Output) :-
         sort_words_slots(WordList, Slots, Pairs),
         insert_words.
 
+pairinsertionSort([], []).
+
+pairinsertionSort([HEAD|TAIL], RESULT) :-
+   insertionSort(TAIL, LIST), insertInPlace(HEAD, LIST, RESULT).
+
+%-----------------------------------------------------------------------
+% insertInPlace(ELEMENT, LIST, RESULT)
+% RESULT is the result of inserting ELEMENT into sorted list LIST
+% at the correct place.
+%-----------------------------------------------------------------------
+
+pairinsertInPlace(ELEMENT, [], [ELEMENT]).
+
+pairinsertInPlace([Word-Slots, [Word2-Slots2|TAIL], [Word-Slots|LIST]) :-
+        length(Slots, Slots_Len),
+        length(Slots2, Slots2_Len),
+        Slots_Len =< Slots2_Len, insertInPlace(Word2-Slots2, TAIL, LIST).
+
+pairinsertInPlace(Word-Slots, [Word2-Slots2|TAIL], [Word2-Slots2|LIST]) :-
+        length(Slots, Slots_Len),
+        length(Slots2, Slots2_Len),
+        Slots_Len > Slots2_Len, insertInPlace(Word-Slots, TAIL, LIST).
+
 % Pair is in Key Value Pair Format eg. [Word]-[[Slot]]
-insert_words([[]-[]|Pairs]):-
-        insert_words(Pairs).
-insert_words([]).
-insert_words([) :-
-        (  Pkhead = Pvhead   % Successful Unification
-        -> insert_words([[Pktail]-[Pvtail]|Pairs])
-        ;  % Failed Unification
-            length(Pvtail, Pvtail_Len),
-            Pvtail_Len > 0,
-            insert
-        )
-attempt_unification(_,[],[])
-attempt_unification(test_item, [X|Xs], final):-
-        (  test_item = X % attempt unification
-        -> final = Xs
-        ; % else failed unification
-           attempt_unification(test_item, Xs, final)
-        ).
+insert_words([Word-[Slot|Slots]|Pairs]):-
+        (  (Word = Slot, prune_pairs(Pairs, Pruned)) 
+        % Successful Unification
+        -> %do nothing
+        ; % Failed Unification
+          insert_words([Word-Slots|Pairs]).
+        ),
+        insert_words([Slots]).
+
+% Since we've unified a slot with a word, we have to remove this slot from
+% the other pairs.
+prune_pairs(Pairs, Pruned):-
+        prune_pairs(Pairs, [], Pruned).
+prune_pairs([],Pruned, Pruned).
+prune_pairs([Word-Slots|Pairs], Acc, Pruned):-
+        test_word(Word, Slots, Remaining),
+        length(Remaining, NumRemaining),
+        NumRemaining > 0,
+        prune_pairs(Pairs, [Word-Remaining|Acc], Pruned).
 % ------------------------------------------------ %
 % End Insertion Functions 
 % ------------------------------------------------ %  
