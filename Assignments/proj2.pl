@@ -267,27 +267,28 @@ test_solve(PuzzleFile, WordFile, Output) :-
         read_file(WordFile, WordList),
         init_variables(Puzzle, VarPuzzle),
         init_slots(VarPuzzle, Slots),
-        sort_words_slots(WordList, Slots, Output).
+        sort_words_slots(WordList, Slots, Pairs),
+        insert_words.
 
-%% % Pair is in Key Value Pair Format eg. [Word]-[[Slot]]
-%% insert_words([[]-[]|Pairs]):-
-%%         insert_words(Pairs).
-%% insert_words([]).
-%% insert_words([[Pkhead|Pktail]-[Pvhead|Pvtail]|Pairs]) :-
-%%         (  Pkhead = Pvhead   % Successful Unification
-%%         -> insert_words([[Pktail]-[Pvtail]|Pairs])
-%%         ;  % Failed Unification
-%%             length(Pvtail, Pvtail_Len),
-%%             Pvtail_Len > 0,
-%%             insert
-%%         )
-%% attempt_unification(_,[],[])
-%% attempt_unification(test_item, [X|Xs], final):-
-%%         (  test_item = X % attempt unification
-%%         -> final = Xs
-%%         ; % else failed unification
-%%            attempt_unification(test_item, Xs, final)
-%%         ).
+% Pair is in Key Value Pair Format eg. [Word]-[[Slot]]
+insert_words([[]-[]|Pairs]):-
+        insert_words(Pairs).
+insert_words([]).
+insert_words([) :-
+        (  Pkhead = Pvhead   % Successful Unification
+        -> insert_words([[Pktail]-[Pvtail]|Pairs])
+        ;  % Failed Unification
+            length(Pvtail, Pvtail_Len),
+            Pvtail_Len > 0,
+            insert
+        )
+attempt_unification(_,[],[])
+attempt_unification(test_item, [X|Xs], final):-
+        (  test_item = X % attempt unification
+        -> final = Xs
+        ; % else failed unification
+           attempt_unification(test_item, Xs, final)
+        ).
 % ------------------------------------------------ %
 % End Insertion Functions 
 % ------------------------------------------------ %  
