@@ -392,7 +392,6 @@ update_pairs([],Pruned) :-
         quicksort_pair_mid_pivot(Pruned, SortedPruned),
         insert_words(SortedPruned).
 update_pairs([Word-Slots|Pairs], Acc):-
-        % Test unifiability of word against the updated slots.
         test_word(Word, Slots, Remaining),
         length(Remaining, NumRemaining),
         % Fast Failure - 0 matching slots.
