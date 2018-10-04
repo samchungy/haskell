@@ -6,7 +6,7 @@ main(PuzzleFile, WordlistFile, SolutionFile) :-
 	read_file(PuzzleFile, Puzzle),
 	read_file(WordlistFile, Wordlist),
 	valid_puzzle(Puzzle),
-%	solve_puzzle(Puzzle, Wordlist, Solved),
+	solve_puzzle(Puzzle, Wordlist, Solved),
 	print_puzzle(SolutionFile, Solved).
 
 read_file(Filename, Content) :-
@@ -56,9 +56,12 @@ valid_puzzle([]).
 valid_puzzle([Row|Rows]) :-
 	maplist(same_length(Row), Rows).
 
-% solve_puzzle(Puzzle, WordList, SolvedPuzzle) :-
-	% init_variables(Puzzle, VarPuzzle),
-	% init_slots(VarPuzzle, Slots).
+solve_puzzle(Puzzle, WordList, SolvedPuzzle) :-
+        init_variables(Puzzle, VarPuzzle),
+        init_slots(VarPuzzle, Slots),
+        sort_words_slots(WordList, Slots, Pairs),
+        insert_words(Pairs),
+        SolvedPuzzle = VarPuzzle.
 
 % ------------------------------------------------ %
 % Start Initialisation Functions 
@@ -71,7 +74,8 @@ init_variables(OldPuzzle, NewPuzzle) :-
 init_variables([], NewPuzzle, NewPuzzle).
 init_variables([Row|Rows], Prev, NewPuzzle) :-
 	init_vars_row(Row, [], Acc1),
-	init_variables(Rows, [Acc1|Prev], NewPuzzle).
+        append(Prev, [Acc1], Acc2),
+	init_variables(Rows, Acc2, NewPuzzle).
 
 % Initialises the rows of the puzzle, uses NewRow & Prev to accumulator 
 % results and newRow returns the results.
@@ -82,7 +86,8 @@ init_vars_row([X|Xs], Prev, NewRow) :-
 	;  % else we have a letter or hashtag
 	   A = X
 	),
-	init_vars_row(Xs, [A|Prev], NewRow).
+        append(Prev, [A], Acc),
+	init_vars_row(Xs, Acc, NewRow).
 
 % Initialises the slots needed for unification using the variable puzzle
 % created in init_variables. Transpose the puzzle to avoid writing extra
@@ -108,7 +113,7 @@ init_slots_row([], Prev, AccSlot, Slots) :-
 	   % Deal with Prev being empty to avoid returning a list instead of
 	   % a list of lists.
 	   (  PrevLen > 0
-	   -> append([AccSlot], Prev, Slots)
+	   -> append(Prev,[AccSlot], Slots)
 	   ;  % else prev is 0
 	      Slots = [AccSlot]
 	   )
@@ -119,11 +124,13 @@ init_slots_row([X|Xs], Prev, AccSlot, Slots) :-
 	length(AccSlot, Len),
 	(  (nonvar(X), X = '#')
 	-> (  Len > 1
-	   -> init_slots_row(Xs, [AccSlot|Prev], [], Slots)
+	   -> append(Prev, [AccSlot], Acc2),
+              init_slots_row(Xs, Acc2, [], Slots)
 	   ;  init_slots_row(Xs, Prev, [], Slots)
 	   )
 	;  % else X is a character or blank
-	   init_slots_row(Xs, Prev, [X|AccSlot], Slots)
+           append(AccSlot, [X], AccSlot2),
+	   init_slots_row(Xs, Prev, AccSlot2, Slots)
 	).
 	
 test_init(PuzzleFile, Output) :-
@@ -139,9 +146,37 @@ test_init(PuzzleFile, Output) :-
 % Start Sorting Functions 
 % ------------------------------------------------ %  
 
+word_quicksort_mid_pivot(Xs,Ys):-
+        middle(Xs, X),
+        partition1(Xs, X, Left, Right),
+        quicksort1(Left, Ls),
+        quicksort1(Right, Rs),
+        append(Ls, Rs, Ys).
+word_quicksort_mid_pivot([],[]).
+
+quicksort1([X|Xs],Ys) :-
+        partition1(Xs,X,Left,Right),
+        quicksort1(Left,Ls),
+        quicksort1(Right,Rs),
+        append(Ls,[X|Rs],Ys).
+quicksort1([],[]).
+
+% Partitioning key value pairs eg. [a]-[_]
+partition1([X|Xs],Y,[X|Ls],Rs) :-
+        length(Y, Y_Len),
+        length(X, X_Len),
+        X_Len =< Y_Len,
+        partition1(Xs,Y,Ls,Rs).
+partition1([X|Xs],Y,Ls,[X|Rs]) :-
+        length(Y, Y_Len),
+        length(X, X_Len),
+        X_Len > Y_Len,
+        partition1(Xs,Y,Ls,Rs).
+partition1([],_,[],[]).
+
 sort_words_slots(WordList, SlotList, SortedPairs) :-
-        insertionSort(SlotList, SortedSlots),
-        insertionSort(WordList, SortedWords),
+        quicksort1(SlotList, SortedSlots),
+        word_quicksort_mid_pivot(WordList, SortedWords),
         pack(SortedSlots, PackedSlots),
         pack(SortedWords, PackedWords),
         pair_words_with_slots(PackedWords, PackedSlots, Pairs),
@@ -269,12 +304,13 @@ test_solve(PuzzleFile, WordFile, Output) :-
         init_variables(Puzzle, VarPuzzle),
         init_slots(VarPuzzle, Slots),
         sort_words_slots(WordList, Slots, Pairs),
-        insert_words.
+        insert_words(Pairs),
+        Output = VarPuzzle.
 
 pairinsertionSort([], []).
 
 pairinsertionSort([HEAD|TAIL], RESULT) :-
-   insertionSort(TAIL, LIST), insertInPlace(HEAD, LIST, RESULT).
+   pairinsertionSort(TAIL, LIST), pairinsertInPlace(HEAD, LIST, RESULT).
 
 %-----------------------------------------------------------------------
 % insertInPlace(ELEMENT, LIST, RESULT)
@@ -283,37 +319,43 @@ pairinsertionSort([HEAD|TAIL], RESULT) :-
 %-----------------------------------------------------------------------
 
 pairinsertInPlace(ELEMENT, [], [ELEMENT]).
-
-pairinsertInPlace([Word-Slots, [Word2-Slots2|TAIL], [Word-Slots|LIST]) :-
+pairinsertInPlace(Word-Slots, [Word2-Slots2|TAIL], [Word-Slots|LIST]) :-
         length(Slots, Slots_Len),
         length(Slots2, Slots2_Len),
-        Slots_Len =< Slots2_Len, insertInPlace(Word2-Slots2, TAIL, LIST).
+        Slots_Len =< Slots2_Len, pairinsertInPlace(Word2-Slots2, TAIL, LIST).
 
 pairinsertInPlace(Word-Slots, [Word2-Slots2|TAIL], [Word2-Slots2|LIST]) :-
         length(Slots, Slots_Len),
         length(Slots2, Slots2_Len),
-        Slots_Len > Slots2_Len, insertInPlace(Word-Slots, TAIL, LIST).
+        Slots_Len > Slots2_Len, pairinsertInPlace(Word-Slots, TAIL, LIST).
 
 % Pair is in Key Value Pair Format eg. [Word]-[[Slot]]
+insert_words([]).
 insert_words([Word-[Slot|Slots]|Pairs]):-
-        (  (Word = Slot, prune_pairs(Pairs, Pruned)) 
+        length([Slot|Slots],SlotLength),
+        SlotLength > 0, % This ensures a quick fail.
+        (  (Word = Slot, prune_pairs(Pairs) ) 
         % Successful Unification
-        -> %do nothing
-        ; % Failed Unification
-          insert_words([Word-Slots|Pairs]).
-        ),
-        insert_words([Slots]).
+        -> true  % Do absolutely nothing
+        ; % Failed Unification, Try and test it on the other compatible slots.
+           length(Slots, RemainingLen),
+           RemainingLen > 0,
+           insert_words([Word-Slots|Pairs])
+        ).
+        
 
 % Since we've unified a slot with a word, we have to remove this slot from
 % the other pairs.
-prune_pairs(Pairs, Pruned):-
-        prune_pairs(Pairs, [], Pruned).
-prune_pairs([],Pruned, Pruned).
-prune_pairs([Word-Slots|Pairs], Acc, Pruned):-
+prune_pairs(Pairs):-
+        prune_pairs(Pairs, []).
+prune_pairs([],Pruned) :-
+        quicksort_mid_pivot(Pruned, SortedPruned),
+        insert_words(SortedPruned).
+prune_pairs([Word-Slots|Pairs], Acc):-
         test_word(Word, Slots, Remaining),
         length(Remaining, NumRemaining),
         NumRemaining > 0,
-        prune_pairs(Pairs, [Word-Remaining|Acc], Pruned).
+        prune_pairs(Pairs, [Word-Remaining|Acc]).
 % ------------------------------------------------ %
 % End Insertion Functions 
 % ------------------------------------------------ %  
