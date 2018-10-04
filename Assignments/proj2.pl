@@ -1,7 +1,35 @@
-% You can use this code to get started with your fillin puzzle solver.
-% Make sure you replace this comment with your own documentation.
+% Declarative Programming COMP30020 Project 2
+% By Sam Chung - Chungs1 - 758 053
+% Semester 2 Unimelb 2018
+
+% Project Explanation:
+% The project was written for a University of Melbourne subject. The aim of 
+% this project is to write prolog code in order to solve a crossword like 
+% puzzle called a fill-in puzzle. A more in-depth explanation of what a
+% fill in puzzle is can be found here: 
+% https://en.wikipedia.org/wiki/Fill-In_(puzzle).
+
+% The aim of this project was to create efficient code which will solve puzzles
+% of different sizes and complexities in under 20 seconds as tested by the
+% university on linux servers. Hence there are a number of efforts made to
+% optimise the efficiency of the code in the place of simplicity.
+
+% Terminology Used:
+% Pair : Pairs are used in SWI-Prolog in the format of key-value
+% Slot : A slot is a space which a word can fit into. eg. [a,b,c] can fit
+%        into a slot [_,_,_].
+
+% Ensures the correct transpose predicate is loaded as SWI-Prolog loads
+% an incompatible version by default.
 :- ensure_loaded(library(clpfd)).
 
+% ------------------------------------------------ %
+% Start File Read-in Functions
+% (Provided by the University)
+% ------------------------------------------------ %  
+
+% Reads the Puzzle File and Word File, Validates, Solves
+% the Maze and Prints it to the SolutionFile.
 main(PuzzleFile, WordlistFile, SolutionFile) :-
 	read_file(PuzzleFile, Puzzle),
 	read_file(WordlistFile, Wordlist),
@@ -9,11 +37,13 @@ main(PuzzleFile, WordlistFile, SolutionFile) :-
 	solve_puzzle(Puzzle, Wordlist, Solved),
 	print_puzzle(SolutionFile, Solved).
 
+% Reads all characters in a file into a stream and passes that to read_lines.
 read_file(Filename, Content) :-
 	open(Filename, read, Stream),
 	read_lines(Stream, Content),
 	close(Stream).
 
+% Interprets a stream and separates that into lines to pass to read_line.
 read_lines(Stream, Content) :-
 	read_line(Stream, Line, Last),
 	(   Last = true
@@ -25,6 +55,7 @@ read_lines(Stream, Content) :-
 	    read_lines(Stream, Content1)
 	).
 
+% Interprets lines into individual characters and parses these into lists.
 read_line(Stream, Line, Last) :-
 	get_char(Stream, Char),
 	(   Char = end_of_file
@@ -37,48 +68,69 @@ read_line(Stream, Line, Last) :-
 	    read_line(Stream, Line1, Last)
 	).
 
+% Takes Puzzle which takes the form of a list of character lists and 
+% parses it into SolutionFile.
 print_puzzle(SolutionFile, Puzzle) :-
 	open(SolutionFile, write, Stream),
 	maplist(print_row(Stream), Puzzle),
 	close(Stream).
 
+% Maps put_puzzle_char over rows.
 print_row(Stream, Row) :-
 	maplist(put_puzzle_char(Stream), Row),
 	nl(Stream).
 
+% Converts the character back into a stream.
 put_puzzle_char(Stream, Char) :-
 	(   var(Char)
 	->  put_char(Stream, '_')
 	;   put_char(Stream, Char)
 	).
 
+% Validates a puzzle
 valid_puzzle([]).
 valid_puzzle([Row|Rows]) :-
 	maplist(same_length(Row), Rows).
 
+% Solves a puzzle by:
+% 1. Converting characters into variables (eg. '_' into free variables).
+% 2. Creating slots where words can fit into in order to enable unification.
+% 3. Creating pairs which store Words with compatible slots. These are sorted
+%       to minimise the search space when we try to unify the words with slots.
+% 4. Unification by inserting words into slots.
+% 5. Returning the solve puzzle back to the main function.
 solve_puzzle(Puzzle, WordList, SolvedPuzzle) :-
+        % Preparing the Puzzle for Solving
         init_variables(Puzzle, VarPuzzle),
-        init_slots(VarPuzzle, Slots),
-        sort_words_slots(WordList, Slots, Pairs),
+        create_slots(VarPuzzle, Slots),
+        % Optimising the Puzzle for Solving
+        create_pairs(WordList, Slots, Pairs),
+        % Solving the Puzzle
         insert_words(Pairs),
         SolvedPuzzle = VarPuzzle.
 
 % ------------------------------------------------ %
-% Start Initialisation Functions 
+% End File Read-in Functions
+% ------------------------------------------------ % 
+
+% ------------------------------------------------ %
+% Start Preparation Functions 
 % ------------------------------------------------ %  
 	
-% Initialise the puzzle with variables in order to make unification easier
-% later on in the processing. Uses an NewPuzzle & Prev to accumulate results.
+% Iterates over the puzzle and calls init_vars_row in order to process over
+% rows. Uses accumulators in order to store completed rows. The purpose of this
+% function is to replace '_' with free variables in order to enable unification
+% in prolog.
 init_variables(OldPuzzle, NewPuzzle) :-
 	init_variables(OldPuzzle, [], NewPuzzle).
 init_variables([], NewPuzzle, NewPuzzle).
 init_variables([Row|Rows], Prev, NewPuzzle) :-
-	init_vars_row(Row, [], Acc1),
-        append(Prev, [Acc1], Acc2),
-	init_variables(Rows, Acc2, NewPuzzle).
+	init_vars_row(Row, [], NewRow),
+        append(Prev, [NewRow], Acc),
+	init_variables(Rows, Acc, NewPuzzle).
 
-% Initialises the rows of the puzzle, uses NewRow & Prev to accumulator 
-% results and newRow returns the results.
+% Changes '_' into free variables, Otherwise leaves them as is. Uses
+% an accumulator to store the processed letters.
 init_vars_row([], NewRow, NewRow).
 init_vars_row([X|Xs], Prev, NewRow) :-
 	(  X = '_'
@@ -90,102 +142,79 @@ init_vars_row([X|Xs], Prev, NewRow) :-
 	init_vars_row(Xs, Acc, NewRow).
 
 % Initialises the slots needed for unification using the variable puzzle
-% created in init_variables. Transpose the puzzle to avoid writing extra
-% code to process the columns.
-init_slots(Puzzle, Slots) :-
-	init_slots(Puzzle, [], HorizontalSlots),
+% created in init_variables. Transposes the puzzle to avoid writing extra
+% code to process the columns. Processes the var puzzle row by row and calls
+% create_slots_row to process the row.
+create_slots(Puzzle, Slots) :-
+	create_slots(Puzzle, [], HorizontalSlots),
 	transpose(Puzzle, VertPuzzle),
-	init_slots(VertPuzzle, [], VerticalSlots),
+	create_slots(VertPuzzle, [], VerticalSlots),
 	append(HorizontalSlots, VerticalSlots, Slots).
-init_slots([], Slots, Slots).
-init_slots([Row|Rows], Prev, Slots) :-
-	init_slots_row(Row, [], [], NewSlots),
+create_slots([], Slots, Slots).
+create_slots([Row|Rows], Prev, Slots) :-
+        % NewSlots is a list of slots.
+	create_slots_row(Row, [], [], NewSlots),
 	append(Prev, NewSlots, Acc2),
-	init_slots(Rows, Acc2, Slots).
+	create_slots(Rows, Acc2, Slots).
 
 % Looks for slots greater than size 1 which indicates a word can be stored.
-% Stores the accumulating slot in AccSlot, Stores those complete slots in Prev
-init_slots_row([], Prev, AccSlot, Slots) :-
+% This is fairly complex as there are a number of cases to consider. A slot can
+% be found if:
+% Condition 1: The space size is > 1 (We have to ignore single _'s)
+% Condition 2: The character # is found while Condition 1 is satisfied.
+% Condition 3: We reach the end of the line while Condition 1 is satisfied.
+% Stores the accumulating space size in Space_Size, 
+% Stores those complete slots in Prev
+create_slots_row([], Prev, Space_Size, Slots) :-
 	% Reached the end of the row
-	length(AccSlot, Len),
+	length(Space_Size, Len),
+        % We need to check the current space_size to see if
+        % we have another slot.
 	(  Len > 1
 	-> length(Prev, PrevLen),
 	   % Deal with Prev being empty to avoid returning a list instead of
 	   % a list of lists.
 	   (  PrevLen > 0
-	   -> append(Prev,[AccSlot], Slots)
+	   -> append(Prev,[Space_Size], Slots)
 	   ;  % else prev is 0
-	      Slots = [AccSlot]
+	      Slots = [Space_Size]
 	   )
 	;  % else no more slots to address
 	   Slots = Prev
 	).
-init_slots_row([X|Xs], Prev, AccSlot, Slots) :-
-	length(AccSlot, Len),
+create_slots_row([X|Xs], Prev, Space_Size, Slots) :-
+	length(Space_Size, Len),
+        % nonvar ensures that the free variable doesn't get unified with #
 	(  (nonvar(X), X = '#')
+        % We've found a # meaning we have to check if our space size
+        % is larger than 1. If so, we add it to the slot accumulator.
 	-> (  Len > 1
-	   -> append(Prev, [AccSlot], Acc2),
-              init_slots_row(Xs, Acc2, [], Slots)
-	   ;  init_slots_row(Xs, Prev, [], Slots)
+	   -> append(Prev, [Space_Size], Acc2),
+              create_slots_row(Xs, Acc2, [], Slots)
+	   ;  create_slots_row(Xs, Prev, [], Slots)
 	   )
-	;  % else X is a character or blank
-           append(AccSlot, [X], AccSlot2),
-	   init_slots_row(Xs, Prev, AccSlot2, Slots)
+        % else X is a character or blank, just add it to the space size
+        % accumulator and keep going until we hit a base case.
+	;
+           append(Space_Size, [X], Space_Size2),
+	   create_slots_row(Xs, Prev, Space_Size2, Slots)
 	).
-	
-test_init(PuzzleFile, Output) :-
-	read_file(PuzzleFile, Puzzle),
-	init_variables(Puzzle, VarPuzzle),
-	init_slots(VarPuzzle, Output).
 	   
 % ------------------------------------------------ %  
-% End Initialisation Functions
+% End Preparation Functions
 % ------------------------------------------------ %  
 	
 % ------------------------------------------------ %
-% Start Sorting Functions 
+% Start Optimisation Functions 
 % ------------------------------------------------ %  
 
-word_quicksort_mid_pivot(Xs,Ys):-
-        middle(Xs, X),
-        partition1(Xs, X, Left, Right),
-        quicksort1(Left, Ls),
-        quicksort1(Right, Rs),
-        append(Ls, Rs, Ys).
-word_quicksort_mid_pivot([],[]).
-
-quicksort1([X|Xs],Ys) :-
-        partition1(Xs,X,Left,Right),
-        quicksort1(Left,Ls),
-        quicksort1(Right,Rs),
-        append(Ls,[X|Rs],Ys).
-quicksort1([],[]).
-
-% Partitioning key value pairs eg. [a]-[_]
-partition1([X|Xs],Y,[X|Ls],Rs) :-
-        length(Y, Y_Len),
-        length(X, X_Len),
-        X_Len =< Y_Len,
-        partition1(Xs,Y,Ls,Rs).
-partition1([X|Xs],Y,Ls,[X|Rs]) :-
-        length(Y, Y_Len),
-        length(X, X_Len),
-        X_Len > Y_Len,
-        partition1(Xs,Y,Ls,Rs).
-partition1([],_,[],[]).
-
-sort_words_slots(WordList, SlotList, SortedPairs) :-
-        quicksort1(SlotList, SortedSlots),
-        word_quicksort_mid_pivot(WordList, SortedWords),
+create_pairs(WordList, SlotList, SortedPairs) :-
+        quicksort_single(SlotList, SortedSlots),
+        quicksort_single_mid_pivot(WordList, SortedWords),
         pack(SortedSlots, PackedSlots),
         pack(SortedWords, PackedWords),
         pair_words_with_slots(PackedWords, PackedSlots, Pairs),
-        quicksort_mid_pivot(Pairs, SortedPairs).
-
-% Zip into Pairormat: [[Words of Same Length]-[Slots of Same Length]]
-zip_into_pair([], [], []).
-zip_into_pair([X|Xs], [Y|Ys], [X-Y|Zs]) :-
-        zip_into_pair(Xs, Ys, Zs).
+        quicksort_pair_mid_pivot(Pairs, SortedPairs).
 
 pair_words_with_slots(PackedWords, PackedSlots, SortedPairs) :-
         pair_words_with_slots(PackedWords, PackedSlots, [], SortedPairs).
@@ -230,27 +259,12 @@ transfer(W, [X|Xs], Ys, [W|Zs]) :-
         Len_W =:= Len_X,
         transfer(X, Xs, Ys, Zs).
 
-% Insertion Sort adapted From http://www.cs.princeton.edu/courses/archive/
-% spr11/cos333/lectures/17paradigms/sort.prolog 
-
-insertionSort([], []).
-insertionSort([Head|Tail], Result) :-
-        insertionSort(Tail, List), insertInPlace(Head, List, Result).
-
-insertInPlace(Element, [], [Element]).
-insertInPlace(Element, [Head|Tail], [Element|List]) :-
-        length(Element, El_len),
-        length(Head, Head_len),
-        El_len =< Head_len,
-        insertInPlace(Head, Tail, List).
-insertInPlace(Element, [Head|Tail], [Head|List]) :-
-        length(Element, El_len),
-        length(Head, Head_len),
-        El_len > Head_len,
-        insertInPlace(Element, Tail, List).
+% -------------- Quick Sorts -------------- %
+% Adapted from https://www.cp.eng.chula.ac.th/~piak/teaching/dsys/2004/
+% quick-prolog.htm
 
 % Used to grab the middle element for pivot selection in
-% the quicksort function.
+% the quicksort_pair function.
 middle(List, Middle) :-
     middle(List, List, Middle).
 middle([M|_], [_,_], M).
@@ -258,22 +272,54 @@ middle([M|_], [_], M).
 middle([_|T], [_,_,X|T2], Middle) :-
     middle(T, [X|T2], Middle).
 
-% Code adapted from https://www.cp.eng.chula.ac.th/
-% ~piak/teaching/dsys/2004/quick-prolog.htm
-quicksort_mid_pivot(Xs,Ys):-
+% Starts the quicksort_pair algorithm with the middle element as the pivot
+% This is great when we know a list is mostly sorted to avoid choosing the
+% worse case pivot.
+quicksort_single_mid_pivot(Xs,Ys):-
+        middle(Xs, X),
+        partition_single(Xs, X, Left, Right),
+        quicksort_single(Left, Ls),
+        quicksort_single(Right, Rs),
+        append(Ls, Rs, Ys).
+quicksort_single_mid_pivot([],[]).
+
+% Regular quicksort_pair, chooses first item as pivot.
+quicksort_single([X|Xs],Ys) :-
+        partition_single(Xs,X,Left,Right),
+        quicksort_single(Left,Ls),
+        quicksort_single(Right,Rs),
+        append(Ls,[X|Rs],Ys).
+quicksort_single([],[]).
+
+% Compares the items based on their lengths and partitions them to the Left
+% and right accordingly.
+partition_single([X|Xs],Y,[X|Ls],Rs) :-
+        length(Y, Y_Len),
+        length(X, X_Len),
+        X_Len =< Y_Len,
+        partition_single(Xs,Y,Ls,Rs).
+partition_single([X|Xs],Y,Ls,[X|Rs]) :-
+        length(Y, Y_Len),
+        length(X, X_Len),
+        X_Len > Y_Len,
+        partition_single(Xs,Y,Ls,Rs).
+partition_single([],_,[],[]).
+
+%
+quicksort_pair_mid_pivot(Xs,Ys):-
         middle(Xs, X),
         partition(Xs, X, Left, Right),
-        quicksort(Left, Ls),
-        quicksort(Right, Rs),
+        quicksort_pair(Left, Ls),
+        quicksort_pair(Right, Rs),
         append(Ls, Rs, Ys).
-quicksort_mid_pivot([],[]).
+quicksort_pair_mid_pivot([],[]).
 
-quicksort([X|Xs],Ys) :-
+quicksort_pair([X|Xs],Ys) :-
         partition(Xs,X,Left,Right),
-        quicksort(Left,Ls),
-        quicksort(Right,Rs),
+        quicksort_pair(Left,Ls),
+        quicksort_pair(Right,Rs),
         append(Ls,[X|Rs],Ys).
-quicksort([],[]).
+quicksort_pair([],[]).
 
 % Partitioning key value pairs eg. [a]-[_]
 partition([Xk-Xv|Xs],Yk-Yv,[Xk-Xv|Ls],Rs) :-
@@ -289,21 +335,12 @@ partition([Xk-Xv|Xs],Yk-Yv,Ls,[Xk-Xv|Rs]) :-
 partition([],_,[],[]).
 
 % ------------------------------------------------ %
-% End Sorting Functions 
+% End Optimisation Functions 
 % ------------------------------------------------ %  
 
 % ------------------------------------------------ %
 % Start Insertion Functions
 % ------------------------------------------------ %
-
-test_solve(PuzzleFile, WordFile, Output) :-
-        read_file(PuzzleFile, Puzzle),
-        read_file(WordFile, WordList),
-        init_variables(Puzzle, VarPuzzle),
-        init_slots(VarPuzzle, Slots),
-        sort_words_slots(WordList, Slots, Pairs),
-        insert_words(Pairs),
-        Output = VarPuzzle.
 
 pairinsertionSort([], []).
 
@@ -347,7 +384,7 @@ insert_words([Word-[Slot|Slots]|Pairs]):-
 prune_pairs(Pairs):-
         prune_pairs(Pairs, []).
 prune_pairs([],Pruned) :-
-        quicksort_mid_pivot(Pruned, SortedPruned),
+        quicksort_pair_mid_pivot(Pruned, SortedPruned),
         insert_words(SortedPruned).
 prune_pairs([Word-Slots|Pairs], Acc):-
         test_word(Word, Slots, Remaining),
