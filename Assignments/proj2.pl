@@ -204,12 +204,10 @@ test_word(Word, Slots, UnifiableList):-
         test_word(Word, Slots, [], UnifiableList).
 test_word(_,[],Slots,Slots).
 test_word(Word, [Slot|Slots], Ys, List):-
-        unifiable(Word, Slot, _),
-        test_word(Word, Slots, [Slot|Ys], List).
-test_word(Word, [Slot|Slots], Ys, List):-
-        not(unifiable(Word, Slot, _)),
-        test_word(Word, Slots, Ys, List).
-
+        (  (unifiable(Word, Slot, _))
+        -> test_word(Word, Slots, [Slot|Ys], List)
+        ; test_word(Word, Slots, Ys, List)
+        ).
 
 % Pack function adapted from
 % http://www.ic.unicamp.br/~meidanis/courses/problemas-prolog/p09.prolog
